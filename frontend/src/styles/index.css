@@ -1,0 +1,31 @@
+.cardheader {
+  color: #04ade0;
+  font-family: sans-serif;
+  font-weight: 300;
+  max-height: 25px;
+  margin-top: 5px;
+  font-size: 13pt;
+}
+
+.title {
+  color: #04ade0;
+  font-family: sans-serif;
+  font-weight: 300;
+  font-size: 13pt;
+}
+
+tr:hover {
+  background-color: rgb(39, 39, 42);
+}
+
+.llmLabel {
+  display: block;
+  margin-top: 3px;
+  max-height: 70px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 6pt;
+  writing-mode: vertical-rl;
+  cursor: default;
+}

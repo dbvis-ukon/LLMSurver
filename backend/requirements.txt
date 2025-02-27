@@ -1,0 +1,8 @@
+fastapi==0.115.9
+uvicorn==0.34.0
+pydantic==2.10.6
+python-multipart==0.0.20
+pandas==2.2.3
+bibtexparser==1.4.3
+doi2bib==0.4.0
+openai==1.64.0
