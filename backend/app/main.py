@@ -347,8 +347,20 @@ async def classify(request_data: dict):
         )
 
         answer = response.choices[0].message.content
+        answer = re.sub(r'<think>.*?</think>', '', answer, flags=re.DOTALL)
+       
         # Extract classification from the response - 1: include, 2: discard, 3: error
-        classification = 1 if "include" in answer.lower() else 2 if "discard" in answer.lower() else 3
+        classification = 0
+        if "include" in answer.lower():
+            classification += 1
+        
+        if "discard" in answer.lower():
+            classification += 2
+            
+        if classification == 0:
+            classification = 3
+            
+        #classification = 1 if "include" in answer.lower() else 2 if "discard" in answer.lower() else 3
     except (openai.OpenAIError, Exception) as e:
         classification = 3
         answer = str(e)
