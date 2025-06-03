@@ -35,23 +35,23 @@ The system will be available under `http://127.0.0.1:3000` after installation.
 
 ## Citing this Repository
 
-To reference this repository, please cite the original [publication](https://arxiv.org/abs/2407.10652):
+To reference this repository, please cite the original [publication](https://diglib.eg.org/handle/10.2312/eurova20251105):
+
 
 ```
-Joos, Lucas, Daniel A. Keim, and Maximilian T. Fischer. "Cutting Through the Clutter: The Potential of LLMs for Efficient Filtration in Systematic Literature Reviews". arXiv preprint arXiv:2407.10652 (2024).
+Joos, Lucas, Daniel A. Keim, and Maximilian T. Fischer. “Cutting Through the Clutter: The Potential of LLMs for Efficient Filtration in Systematic Literature Reviews” in EuroVis Workshop on Visual Analytics (EuroVA), 2025. doi: 10.2312/eurova.20251105.
 ```
 
 ### BibTeX
 
 ```
-@misc{joos2024cuttingclutterpotentialllms,
-      title={Cutting Through the Clutter: The Potential of LLMs for Efficient Filtration in Systematic Literature Reviews}, 
-      author={Lucas Joos and Daniel A. Keim and Maximilian T. Fischer},
-      year={2024},
-      eprint={2407.10652},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2407.10652}, 
+@inproceedings{joos2025cutting,
+  author = {Joos, Lucas and Keim, Daniel A. and Fischer, Maximilian T.},
+  booktitle = {EuroVis Workshop on Visual Analytics (EuroVA)},
+  doi = {10.2312/eurova.20251105},
+  title = {Cutting Through the Clutter: The Potential of LLMs for Efficient Filtration in Systematic Literature Reviews},
+  url = {https://diglib.eg.org/handle/10.2312/eurova20251105},
+  year = 2025
 }
 ```
 
