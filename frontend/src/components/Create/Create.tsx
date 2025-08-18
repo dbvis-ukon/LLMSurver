@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from "react";
 import RunParallel from "run-parallel";
 import {
@@ -17,9 +18,12 @@ import {
   Tooltip,
   Progress,
 } from "@heroui/react";
-import { FaCirclePlus } from "react-icons/fa6";
+import { FaPenToSquare, FaArrowRotateLeft} from "react-icons/fa6";
 import Setup from "./Setup";
 import * as Types from "Types";
+
+import { classifyViaLLM } from "../../helpers/llm";
+import { getModelsFromDB, setRunToDB } from "../../helpers/db";
 
 interface Props {
   ids: number[];
@@ -28,7 +32,7 @@ interface Props {
   setOngoing: (s: boolean) => void;
   papers: Types.Paper[];
   setPapers: (p: Types.Paper[]) => void;
-  currentRun: Types.Run;
+  currentRun: Types.RunInformation;
 }
 
 export default function Create({
@@ -42,9 +46,11 @@ export default function Create({
 }: Props) {
   const sampleLength = 5;
   const [showModal, setShowModal] = useState<string>("");
-  const standard =
+  const defaultPrompt =
     "You are a professor in computer science conducting a literature review.\nPlease decide and classify if the following paper belongs to a specific research direction or not.\nFor this, you are provided with the title and the abstract, which should give you sufficient information for an informed and accurate decision.\nThe research direction is the topic of 'TITEL'.\nTherefore include papers that deal with ASPECT1, ASPECT2, ... Examples of ASPECT1 are: term 1, term 2.\n\nYou MUST discard papers that EXCLUSION_EXCEPTION_1,EXCLUSION_EXCEPTION_2,...\n\nYou MUST include papers that INCLUSION_EXCEPTION_1, INCLUSION_EXCEPTION_2, ...";
-  const [prompt, setPrompt] = useState<string>(standard);
+  const KeyLSPrompt = "prompt-last-saved";
+  const lastSavedPrompt = localStorage.getItem(KeyLSPrompt) || defaultPrompt;
+  const [prompt, setPrompt] = useState<string>(lastSavedPrompt);
   const [models, setModels] = useState<Types.Model[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [runName, setRunName] = useState("");
@@ -58,9 +64,14 @@ export default function Create({
     getModels();
   }, []);
 
+  function updatePrompt(prompt: string) {
+    localStorage.setItem(KeyLSPrompt, prompt);
+    setPrompt(prompt);
+  }
+
   // If a run is selected, shows prompt used while run was created
   useEffect(() => {
-    setPrompt(currentRun.run_id === -1 ? standard : currentRun.prompt);
+    updatePrompt(currentRun.run_id === -1 ? lastSavedPrompt : currentRun.prompt);
     setRunName(currentRun.run_id === -1 ? "" : currentRun.alias);
   }, [currentRun]);
 
@@ -70,11 +81,9 @@ export default function Create({
 
   async function getModels() {
     try {
-      const response = await fetch("/api/get_models");
-      const data = await response.json();
-      if (data.models) {
-        setModels(data.models);
-      }
+
+      const models = await getModelsFromDB();
+      setModels(models);
     } catch (error) {
       console.error(error);
     }
@@ -112,28 +121,22 @@ export default function Create({
       runOngoingRef.current = true;
 
       try {
-        const response = await fetch("/api/set_run", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        const result = await setRunToDB({
             prompt: prompt,
             ...(sample && { ids: ids.slice(0, sampleLength) }),
             name: runName,
-          }),
-        });
-        const data = await response.json();
-        if (data.run) {
+          })
+        
+        if (result.run) {
           // Runs each selected model at the same time
           RunParallel(
             selected.map((name) => {
               return async function () {
-                classifyPapers(data.run, ids, name, prompt, sample);
+                classifyPapers(result.run, ids, name, prompt, sample);
               };
             })
           );
-          getRuns(data.run);
+          getRuns(result.run);
         }
       } catch (error) {
         console.error(error);
@@ -154,19 +157,12 @@ export default function Create({
       currIdx < (sample ? sampleLength : paperIds.length)
     ) {
       try {
-        const response = await fetch("/api/classify", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        const data = await classifyViaLLM({
             model: model,
             prompt: prompt,
             paper_id: paperIds[currIdx],
             run_id: runId,
-          }),
-        });
-        const data = await response.json();
+          })
         alreadyClassified.current += 1;
         // Updates progression bar
         setRunProgress(
@@ -175,7 +171,9 @@ export default function Create({
 
         if (data) {
 
-          const error = data['error'] != undefined;
+          const error: boolean = data.classification == 3;
+          if (error)
+            console.warn((data.model_name, data.answer));
 
           let npaper = papers;
 
@@ -190,19 +188,11 @@ export default function Create({
           // Adds current response to the model response array
           if (pid >= 0) {
 
-            if (!error) {
-              npaper[pid].model_responses!.push({
+            npaper[pid].model_responses!.push({
                 model_name: data.model_name,
                 classification: data.classification,
                 answer: data.answer,
-              });
-            } else {
-              npaper[pid].model_responses!.push({
-                model_name: data.model_name,
-                classification: 3,
-                answer: data.error,
-              });
-            }
+            });
 
             setPapers([...npaper]);
           }
@@ -222,12 +212,40 @@ export default function Create({
   return (
     <>
       <Card style={{ flex: "1 1 70%", height: "100%" }}>
-        <CardHeader className="cardheader">Prompt Definition</CardHeader>
+        <CardHeader className="cardheader">
+          <div
+            style={{
+              flex: "1 1",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <Tooltip showArrow={true} content="LLM-Surver - An automatic structured literature review creation tool filtering a paper corpus using LLMs while runing entirely in your browser.">
+                <span className="text-lg">LLMSurver</span>
+              </Tooltip>
+               <span> - Prompt Definition</span>
+               <span className="text-gray-300" style={{ marginLeft: "0.5em", fontSize: "8pt"}}>
+            Prompt will automatically be appended with: "Below is the title and abstract. You must only answer with INCLUDE
+            or DISCARD and a 2-sentence reason of why."
+              </span>
+               </div>
+            <Tooltip showArrow={true} content="Reset to default prompt template">
+              <Button
+                style={{ marginTop: "7px" }}
+                size="sm"
+                isIconOnly
+                onClick={() => updatePrompt(defaultPrompt)}
+              >
+                <FaArrowRotateLeft />
+              </Button>
+            </Tooltip>
+          </div>
+          
+          </CardHeader>
         <CardBody
           style={{
-            display: "flex",
-            flexDirection: "column",
-            height: "100%",
             overflowY: "hidden",
           }}
         >
@@ -237,18 +255,12 @@ export default function Create({
             variant="faded"
             placeholder="Insert your prompt here..."
             classNames={{
-              base: "max-h-[80%]",
               input: "max-h-[100%]",
             }}
-            style={{ fontSize: "10pt", padding: "10px" }}
+            style={{ fontSize: "10pt", padding: "5px", height: "auto" }}
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => updatePrompt(e.target.value)}
           />
-          <Spacer y={2} />
-          <span style={{ fontSize: "11pt" }}>
-            "Below is the title and abstract. You must only answer with INCLUDE
-            or DISCARD and a 2-sentence reason of why." (automatically added)
-          </span>
         </CardBody>
       </Card>
 
@@ -264,7 +276,7 @@ export default function Create({
             }}
           >
             <span>LLM Selection</span>
-            <Tooltip showArrow={true} content="Add LLMs">
+            <Tooltip showArrow={true} content="Add/Edit LLMs">
               <Button
                 isDisabled={ongoing}
                 style={{ marginTop: "7px" }}
@@ -272,7 +284,7 @@ export default function Create({
                 isIconOnly
                 onPress={() => setShowModal("LLMs")}
               >
-                <FaCirclePlus />
+                <FaPenToSquare />
               </Button>
             </Tooltip>
           </div>

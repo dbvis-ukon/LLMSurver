@@ -1,0 +1,17 @@
+# git and env
+.git
+.env
+
+# build files
+.gitattributes
+.gitignore
+.gitlab-ci.yml
+docker-compose.yml
+Dockerfile
+
+# node_modules
+**/node_modules
+
+
+# development test data
+# none so far

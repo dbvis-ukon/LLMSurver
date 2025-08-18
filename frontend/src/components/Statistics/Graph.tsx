@@ -1,3 +1,5 @@
+
+import * as Types from "Types";
 import { useEffect, useState } from "react";
 import {
   Chart as ChartJS,
@@ -9,7 +11,7 @@ import {
   Legend,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
-import * as Types from "Types";
+
 
 ChartJS.register(
   CategoryScale,
@@ -42,7 +44,7 @@ export default function Graph({ classifications, consensus, type }: Props) {
     "rgb(235, 159, 212)",
     "rgb(165, 165, 165)",
   ] as const;
-  const options = {
+  const options : any = {
     maintainAspectRatio: false,
     devicePixelRatio: window.devicePixelRatio,
     plugins: {

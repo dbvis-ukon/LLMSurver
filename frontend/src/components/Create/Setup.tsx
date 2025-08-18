@@ -15,10 +15,13 @@ import { useState } from "react";
 import {
   FaCirclePlus,
   FaCircleMinus,
-  FaCircleCheck,
-  FaPenToSquare,
+  FaFloppyDisk,
+  FaFileCirclePlus,
+  FaRegTrashCan
 } from "react-icons/fa6";
 import * as Types from "Types";
+
+import { setModelToDB, getParametersFromDB, deleteModelFromDB } from "../../helpers/db";
 
 interface Props {
   onClose: () => void;
@@ -40,7 +43,7 @@ export default function Setup({
   const none: Types.Model = {
     model_id: -1,
     host: "",
-    name: "New Model...",
+    name: "Add Model...",
     key: "",
   };
   const [selected, setSelected] = useState<Types.Model>(none);
@@ -48,17 +51,8 @@ export default function Setup({
 
   async function getParameters(key: number) {
     try {
-      const response = await fetch("/api/get_parameters", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model_id: key,
-        }),
-      });
-      const data = await response.json();
-      setParameters(data.parameters ? data.parameters : []);
+      const parameters = await getParametersFromDB(key);
+      setParameters(parameters);
     } catch (error) {
       console.error(error);
     }
@@ -80,33 +74,47 @@ export default function Setup({
   async function handleSubmit() {
     // If a model is currently selected, that model is modified
     const edit = selected.model_id > 0;
-    const values = {
-      ...selected,
-      name: edit ? selected.name : newModel,
-    };
+
+    const currentModel = { ...selected as Types.Model };
+    currentModel.name =  edit ? selected.name : newModel;
+
     try {
-      const response = await fetch("/api/set_model", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...values,
+
+        const model = await setModelToDB({
+          model: currentModel,
           parameters: parameters,
           edit: edit,
-        }),
-      });
-      const data = await response.json();
-      if (!data.error) {
+        });
+      
         getModels();
-        getParameters(data.model_id);
+        getParameters(model.model_id);
         if (!edit)
           setSelected((prev) => ({
             ...prev,
-            model_id: data.model_id,
-            name: data.name,
+            model_id: model.model_id,
+            name: model.name,
           }));
-      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function handleDelete() {
+    // If a model is currently selected, that model is modified
+    if (!(selected.model_id > 0))
+      throw Error('non existing model to be deleted')
+
+    try {
+        await deleteModelFromDB(selected.model_id)
+        getModels();
+        getParameters(-1);
+        setSelected((prev) => ({
+            ...prev,
+            model_id: none.model_id,
+            name: none.name,
+            host: none.host,
+            key: none.key
+          }));
     } catch (error) {
       console.error(error);
     }
@@ -114,17 +122,18 @@ export default function Setup({
 
   return (
     <Modal
-      className="dark text-foreground bg-background"
+      className="dark text-foreground bg-background border"
       isOpen={showModal}
       onOpenChange={onClose}
-      size="full"
+      size="5xl"
       scrollBehavior="inside"
     >
       <ModalContent>
         <ModalHeader>
+          <span style={{marginRight: '0.5em'}}>Select a model: </span>
           <Dropdown showArrow>
             <DropdownTrigger>
-              <Button>{selected.name}</Button>
+              <Button>{selected.model_id == -1 ? 'New unnamed model' : selected.name}</Button>
             </DropdownTrigger>
             <DropdownMenu
               aria-label="models"
@@ -251,8 +260,8 @@ export default function Setup({
                   (selected.model_id <= 0 && newModel.length === 0)
                   ? "Must set host and model name"
                   : selected.model_id > 0
-                    ? "Edit Model"
-                    : "Submit Model"
+                    ? "Update Model"
+                    : "Save as new Model"
               }
             >
               <span>
@@ -266,10 +275,24 @@ export default function Setup({
                   onPress={handleSubmit}
                 >
                   {selected.model_id > 0 ? (
-                    <FaPenToSquare />
+                    <FaFloppyDisk />
                   ) : (
-                    <FaCircleCheck />
+                    <FaFileCirclePlus />
                   )}
+                </Button>
+              </span>
+            </Tooltip>
+            <Tooltip
+              showArrow={true}
+              content={selected.model_id > 0 ? "Delete Model" : "No existing model selected"}
+            >
+              <span>
+                <Button
+                  isDisabled={selected.model_id < 0}
+                  isIconOnly
+                  onPress={handleDelete}
+                >
+                    <FaRegTrashCan />
                 </Button>
               </span>
             </Tooltip>

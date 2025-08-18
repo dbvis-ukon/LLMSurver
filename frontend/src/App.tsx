@@ -1,8 +1,11 @@
+
 import "@styles/index.css";
+import * as Types from "Types";
 import { useEffect, useState } from "react";
 import {
   Card,
   Button,
+  Badge,
   Checkbox,
   Table,
   TableHeader,
@@ -18,17 +21,26 @@ import {
   Divider,
   Tooltip,
 } from "@heroui/react";
-import { FaRegTrashCan } from "react-icons/fa6";
+import { FaRegTrashCan, FaCircleInfo } from "react-icons/fa6";
 import Create from "@components/Create/Create";
-import Papers from "@components/Table/Papers";
 import Graph from "@components/Statistics/Graph";
-import * as Types from "Types";
 import Header from "@components/Table/Header";
+import Papers from "@components/Table/Papers";
+import OnboardingModal from "@components/OnboardingModal";
+import { ONBOARDING_OPEN_EVENT} from "@components/OnboardingModal";
+
+
+import {
+  getPapersFromDB,
+  deleteRunFromDB,
+  getRunsFromDB,
+  getRunFromDB
+} from "./helpers/db";
 
 export default function App() {
   const [originalPapers, setOriginalPapers] = useState<Types.Paper[]>([]);
   const [papers, setPapers] = useState<Types.Paper[]>([]);
-  const EmptyRun: Types.Run = {
+  const EmptyRun: Types.RunInformation = {
     run_id: -1,
     alias: "New Run...",
     type: 0,
@@ -36,8 +48,8 @@ export default function App() {
     created: "",
   };
   const [runOngoing, setRunOngoing] = useState(false);
-  const [runs, setRuns] = useState<Types.Run[]>([EmptyRun]);
-  const [run, setRun] = useState<Types.Run>(EmptyRun);
+  const [runs, setRuns] = useState<Types.RunInformation[]>([EmptyRun]);
+  const [run, setRun] = useState<Types.RunInformation>(EmptyRun);
   const [runModels, setRunModels] = useState<string[]>([]);
   const [consensus, setConsensus] = useState<string[]>([]);
   const empty: Types.Statistic = {
@@ -57,14 +69,11 @@ export default function App() {
 
   async function getPapers() {
     try {
-      const response = await fetch("/api/get_papers");
-      const data = await response.json();
-      if (data.papers) {
-        setOriginalPapers(JSON.parse(JSON.stringify(data.papers)));
-        setPapers(JSON.parse(JSON.stringify(data.papers)));
-        setRun(EmptyRun);
-        setStatistic((prev) => ({ ...prev, total: data.papers.length }));
-      }
+      const papers = await getPapersFromDB();
+      setOriginalPapers(JSON.parse(JSON.stringify(papers)));
+      setPapers(JSON.parse(JSON.stringify(papers)));
+      setRun(EmptyRun);
+      setStatistic((prev: any) => ({ ...prev, total: papers.length }));
     } catch (error) {
       console.error(error);
     }
@@ -72,12 +81,13 @@ export default function App() {
 
   async function getRuns(id?: number) {
     try {
-      const response = await fetch("/api/get_runs");
-      const data = await response.json();
-      if (data.runs) {
-        const runs = [EmptyRun, ...data.runs];
-        setRuns(runs);
-        if (id) setRun(runs.find((run: Types.Run) => run.run_id === id));
+      const results = await getRunsFromDB();
+      const runs = [EmptyRun, ...results];
+      setRuns(runs);
+      if (id) {
+        const firstAvailableRun = runs.find((run: Types.RunInformation) => run.run_id === id);
+        if (firstAvailableRun)
+          setRun(firstAvailableRun);
       }
     } catch (error) {
       console.error(error);
@@ -103,16 +113,7 @@ export default function App() {
 
   async function getRun() {
     try {
-      const response = await fetch("/api/get_run", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: run.run_id,
-        }),
-      });
-      const data = await response.json();
+      const data = await getRunFromDB(run.run_id);
 
       if (data.run && data.run[0]) {
         const usedModels = data.run[0]!.model_responses.map(
@@ -159,7 +160,7 @@ export default function App() {
         usedPapers.forEach((paper) => {
           const including: string[] = [];
           let discard = false;
-          let con = 0;
+          let con: Types.ConsensusClassification = 0;
           paper.model_responses!.forEach((response) => {
             if (usedConsensus.includes(response.model_name)) {
               if (response.classification === 1)
@@ -203,20 +204,12 @@ export default function App() {
 
   async function deleteRun() {
     try {
-      const response = await fetch("/api/delete_run", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          run_id: run.run_id,
-        }),
-      });
-      const data = await response.json();
-      if (data.run) {
+      const result = await deleteRunFromDB(run.run_id!);
+
+      if (result.run) {
         setRun(EmptyRun);
         const old = [...runs];
-        setRuns(old.filter((run) => run.run_id !== data.run));
+        setRuns(old.filter((run) => run.run_id !== result.run));
       }
     } catch (error) {
       console.error(error);
@@ -226,7 +219,8 @@ export default function App() {
   return (
     <div
       style={{
-        padding: "20px",
+        padding: "10px",
+        paddingBottom: "5px",
         height: "100vh",
         display: "flex",
         flexDirection: "column",
@@ -295,7 +289,7 @@ export default function App() {
           }}
         >
           <Card style={{ flex: "1 1", height: "50%" }}>
-            <CardHeader className="cardheader">Consensus Scheme</CardHeader>
+            <CardHeader className="cardheader">Consensus</CardHeader>
             <CardBody
               style={{
                 display: "flex",
@@ -322,7 +316,7 @@ export default function App() {
                       </Checkbox>
                     ))}
                   </CheckboxGroup>
-                )}
+                ) || <span>No runs selected</span>}
               </div>
             </CardBody>
           </Card>
@@ -357,7 +351,7 @@ export default function App() {
                   <TableBody>
                     {[
                       ...Object.entries(statistic).filter(
-                        ([key, value]) => key !== "includedBy"
+                        ([key]) => key !== "includedBy"
                       ),
                       ...(statistic.includedBy.length > 0
                         ? statistic.includedBy.map((value, i) => [
@@ -391,7 +385,7 @@ export default function App() {
           height: "25%",
           display: "flex",
           flexDirection: "row",
-          gap: "20px",
+          gap: "20px"
         }}
       >
         <Card
@@ -463,7 +457,9 @@ export default function App() {
                   justifyContent: "space-between",
                 }}
               >
-                <span>Runs</span>
+                <Badge color="default" content={runs.length-1} size="md" placement="top-right" shape="rectangle">
+                  <div style={{marginRight: "10px"}}>Runs</div>
+                </Badge>
                 <Tooltip showArrow={true} content="Delete selected run">
                   <Button
                     isDisabled={run.run_id <= 0}
@@ -526,6 +522,28 @@ export default function App() {
 
         </Card>
       </div>
+
+      {/* Footer Section */}
+      <footer className="text-gray-400 flex justify-between items-center" style={{marginTop: "0px", fontSize: "10px"}}>
+        <div className="text-left"><span><a href="https://github.com/dbvis-ukon/LLMSurver" target="_blank" rel="noopener noreferrer">Github</a></span><span> | </span><span style={{userSelect: "none"}}>Please cite as: </span><span><a href="https://orcid.org/0000-0001-7049-5203">Lucas Joos</a>, <a href="https://orcid.org/0000-0001-7966-9740">Daniel A. Keim</a>, and <a href="https://orcid.org/0000-0001-8076-1376">Maximilian T. Fischer</a>. <i>"Cutting Through the Clutter: The Potential of LLMs for Efficient Filtration in Systematic Literature Reviews"</i> in EuroVis Workshop on Visual Analytics (EuroVA), 2025. doi: <a href="https://doi.org/10.2312/eurova.20251105">10.2312/eurova.20251105</a></span></div>
+        <div className="text-end"><a href="https://www.vis.uni-konstanz.de">DBVIS Research Lab, University of Konstanz, 2025</a>&nbsp; |  &nbsp;
+          <a href="https://www.vis.uni-konstanz.de/en/imprint">Legal Notice</a> | <a href="https://www.vis.uni-konstanz.de/en/datenschutz">Data Protection</a>
+        </div>
+      </footer>
+      <OnboardingModal></OnboardingModal>
+      <Tooltip showArrow={true} content="Help">
+      <div style={{
+                    cursor: "pointer",
+                    height: "24px",
+                    position: "fixed",
+                    right: "20px",
+                    zIndex: "5",
+                    bottom: "20px",
+                    boxShadow: "1px 3px 1px black"
+                }}>
+                  <FaCircleInfo size="25px" onClick={() => window.dispatchEvent(new Event(ONBOARDING_OPEN_EVENT))} />
+                </div>
+      </Tooltip>
     </div>
   );
 }

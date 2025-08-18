@@ -1,3 +1,7 @@
+
+
+import * as Types from "Types";
+
 import {
   Button,
   Input,
@@ -12,7 +16,10 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { FaFileDownload, FaFileUpload, FaUpload } from "react-icons/fa";
 import { FaCircleCheck, FaShuffle } from "react-icons/fa6";
-import * as Types from "Types";
+
+
+import { insertPapersFromDOIOrBibtex } from "../../helpers/paperParsing";
+import { exportPapersLocally } from "../../helpers/export";
 
 interface Props {
   ongoing: boolean;
@@ -20,7 +27,7 @@ interface Props {
   setPapers: (p: Types.Paper[]) => void;
   getPapers: () => void;
   setSearchedPapers: (p: Types.Paper[]) => void;
-  currentRun: Types.Run;
+  currentRun: Types.RunInformation;
 }
 
 export default function Header({
@@ -58,30 +65,29 @@ export default function Header({
     setSearchedPapers(updated);
   }, [search, papers]);
 
+
+
+
   async function handleSubmit(input: File | string | null) {
     if (input === null) {
       return;
     }
-    const formData = new FormData();
-    if (input instanceof File) formData.append("file", input);
-    else if (input === "manual") formData.append("text", manual);
+    let text = "";
+    if (input instanceof File) {
+      text = await input.text();
+    }
+    else if (input === "manual") {
+      text = manual;
+    }
     try {
-      const response = await fetch("/api/insert_papers", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await response.json();
-      if (data.error) {
+      //console.log(manual);
+      await insertPapersFromDOIOrBibtex(text);
+      getPapers();
+      if (input === "manual") {
         setManual("");
-        setShowModal("error");
-        setErr(data.error);
-      } else {
-        getPapers();
-        if (input === "manual") {
-          setManual("");
-          setShowModal("");
-        }
+        setShowModal("");
       }
+      //}
     } catch (error) {
       setManual("");
       setShowModal("error");
@@ -108,25 +114,15 @@ export default function Header({
 
   async function exportPapers() {
     try {
-      const con =
-        currentRun.run_id >= 0 ? papers.map((paper) => paper.consensus) : [];
-      const response = await fetch("/api/export_papers", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const con : Array<Types.ConsensusClassification> =
+        currentRun.run_id >= 0 ? papers.map((paper) => paper.consensus!) : [];
+
+        const { url } = await exportPapersLocally({
           run_id: currentRun.run_id,
           alias: currentRun.alias,
           consensus: con,
-        }),
-      });
-      const blob = await response.blob();
-      if (blob.type === "application/json") {
-        console.error("Download didn't work");
-        return;
-      }
-      const url = window.URL.createObjectURL(blob);
+        }) as any;
+
       const link = document.createElement("a");
       link.href = url;
       link.download = currentRun.alias;
@@ -240,7 +236,8 @@ export default function Header({
         </div>
       </div>
       <Modal
-        className="dark text-foreground bg-background"
+        className="dark text-foreground bg-background border"
+        size="3xl"
         isOpen={showModal === "text"}
         onOpenChange={() => setShowModal("")}
       >
@@ -250,7 +247,7 @@ export default function Header({
             <Textarea
               key="textarea"
               variant="faded"
-              placeholder="Insert your text here..."
+              placeholder="Insert either (a) a list of DOIs (one per line) or (b) bibtex code..."
               classNames={{
                 base: "max-h-[80%]",
                 input: "max-h-[100%]",

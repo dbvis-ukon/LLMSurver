@@ -1,15 +1,8 @@
-version: "3"
 services:
-  backend:
-    build: ./backend
-    container_name: backend
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/backend
-
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: dev.Dockerfile
     container_name: frontend
     environment:
       - VITE_BACKEND_HOST=backend
@@ -17,4 +10,5 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend/src/:/frontend/src/
+      - ./frontend:/frontend
+      - /frontend/node_modules

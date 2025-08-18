@@ -1,51 +1,47 @@
-# LLMSurver
+<p align="center">
+  <a href="https://github.com/dbvis-ukon/LLMSurver"><img src="frontend/public/images/onboarding/llmsurver.jpg" alt="LLMSurver"></a>
+</p>
 
-This repository contains the source code for **LLMSurver**, our tool to support paper corpus filtering for creating structured literature reviews.
+<p align="center">
+    <em>LLMSurver - Automatic LLM-based literature review filtering inside your browser</em>
+</p>
 
+---
 
-## Architecture and Starting
+**LLMSurver** is an automatic structured literature review creation tool for filtering a paper corpus through a textual description using multiple LLMs for consensus voting, while running entirely in your browser.
 
-The application is dockerized and consists of two connected Docker containers:
+The key features are:
 
-* Frontend: The React frontend contains all graphical content and GUI elements
-* Backend: The backend component is composed of a Python fastAPI application used to store and retrieve data, interact with the LLMs and run computationally heavy processes
+* **Fast**: Reduces filtering time for academic corpora from weeks to minutes
+* **Accurate**: A multi-LLM consensus scheme can achieve recall rates > 98.8%, often better than humans *
+* **Interactive**: Interactively refine your research direction, using prompt refinement, resampling, and different LLM agents
+* **Easy**: Try it out directly in your browser, no installation needed
+* **Flexible**: Supports any OpenAI-compatible LLM endpoints, enabling you to use both commercial as well as locally-run LLMs
+* **Privacy**: LLMsurver is entirely browser-based, the paper corpus is only provided to LLMs that you supply and control
 
-The data is stored in an SQLite database in `backend/survey.db`.
+<small>* estimation based on ablation studies in our research paper, see [below](#citing-this-work).</small>
 
-To start the application, a system with Docker installed and an internet connection is required.
-With the following command, the system can be started:
+## Try it out online
 
-```Bash
-docker-compose up
-```
+LLMSurver is available as a web app at [https://llmsurver.dbvis.de](https://llmsurver.dbvis.de).
 
-The system will be available under `http://127.0.0.1:3000` after installation.
+Your data remains fully local and within your browser (except for the LLM calls that are directed to your supplied, personal LLM endpoints).
+*Note*: You require OpenAI-compatible endpoint(s) (i.e. either a public endpoint with auth secret, e.g. `OpenAI`, `Gemini`, `Claude`, ... or a locally running LLM server like `Ollama`, `LMStudio`, ...).
 
+## Citing this Work
 
-## Repository Structure
+This work is part of a research prototype for evaluating the potential of LLMs for literature filtering when generating systematic literature reviews and surveys published in the following **paper**.
 
-* `frontend/`
-  This folder contains the React Frontend.
-
-* `backend/`
-  This folder contains the Python fastAPI backend and the database file (`survey.db`).
-
-* `docu/`  
-  This folder contains the images used for documentation in this document.
-
-## Citing this Repository
-
-To reference this repository, please cite the original [publication](https://diglib.eg.org/handle/10.2312/eurova20251105):
-
+To reference this repository and our work, please cite the original [publication](https://diglib.eg.org/handle/10.2312/eurova20251105):
 
 ```
-Joos, Lucas, Daniel A. Keim, and Maximilian T. Fischer. “Cutting Through the Clutter: The Potential of LLMs for Efficient Filtration in Systematic Literature Reviews” in EuroVis Workshop on Visual Analytics (EuroVA), 2025. doi: 10.2312/eurova.20251105.
+Lucas Joos, Daniel A. Keim, and Maximilian T. Fischer. "Cutting Through the Clutter: The Potential of LLMs for Efficient Filtration in Systematic Literature Reviews" in EuroVis Workshop on Visual Analytics (EuroVA), 2025. doi: 10.2312/eurova.20251105.
 ```
 
-### BibTeX
+##### BibTeX
 
 ```
-@inproceedings{joos2025cutting,
+@inproceedings{JoosKeimFischer.LLMLiteratureFiltration.2025,
   author = {Joos, Lucas and Keim, Daniel A. and Fischer, Maximilian T.},
   booktitle = {EuroVis Workshop on Visual Analytics (EuroVA)},
   doi = {10.2312/eurova.20251105},
@@ -55,30 +51,43 @@ Joos, Lucas, Daniel A. Keim, and Maximilian T. Fischer. “Cutting Through the C
 }
 ```
 
-## How to use LLMSurver
-After installation and accessing the URL, the web application is ready to be used:
+## Research Prototype and Code
 
-![0-initial-state](docs/01.png)
+![main-ui](frontend/public/images/onboarding/05.png)
 
-### 1. Import paper corpus
-First, upload some papers. This can be done with a .bib file or by pasting a DOI or BibTeX using the first or second button above the table.
+This repository contains the source code for LLMSurver. It is structured as follows:
 
-![01-paper-table](docs/02.png)
+* `frontend/`
+  This folder contains the React frontend.
 
-### 2. Add LLMs
+Please note, this is not a commercial product and the code quality for this proof-of-concept work is not production ready.
 
-Using the button in the top right of the page, you can add new LLMs or modify existing ones. A host, model name, key, and further parameters (e.g. temperature etc.) can be set. If you run a local LLM on your machine, use `host.docker.internal` instead of `localhost` as the hostname.
+##### Architecture
 
-![02-add-llms](docs/03.png)
+The application consists of a single Docker container with the frontend based on React that contains all graphical content and GUI elements and the control and API logic. The data is stored inside your browser in an IndexedDB.
 
-### 3. Define and start the classification
+##### Development
 
-After defining LLMs, a run name, a prompt, and selecting the models of interest, the run can be started. In parallel, every paper is passed to the corresponding LLMs with the defined prompt; the results are stored in the database and visualized live in the Frontend.
+To start the application for development, a system with Docker installed and an internet connection is required.
+With the following command, the system can be started:
 
-![03-start-run](docs/04.png)
+```Bash
+docker-compose up
+```
 
-### 4. Interact with results
+The system will be available under `http://127.0.0.1:3000` after compilation.
 
-When the run is completed, the results can be viewed, statistics can be analyzed, and the consensus scheme can be adapted until a sufficient classification has been reached. Further, the prompt can be improved, and a new run can be started.
 
-![04-results](docs/05.png)
+## Documentation
+
+**Documentation**: A tutorial and overview is available under [DOCUMENTATION.md](/DOCUMENTATION.md).
+
+## Authors
+
+* Lucas Joos, DBVIS Research Lab, University of Konstanz, Germany
+* Daniel A. Keim, DBVIS Research Lab, University of Konstanz, Germany
+* Maximilian T. Fischer, DBVIS Research Lab, University of Konstanz, Germany
+
+## License
+
+This project is licensed under the terms of the MIT license.
