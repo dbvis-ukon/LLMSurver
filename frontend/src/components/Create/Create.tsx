@@ -1,6 +1,5 @@
 
 import { useEffect, useState, useRef } from "react";
-import RunParallel from "run-parallel";
 import {
   Button,
   Card,
@@ -128,14 +127,13 @@ export default function Create({
           })
         
         if (result.run) {
-          // Runs each selected model at the same time
-          RunParallel(
-            selected.map((name) => {
-              return async function () {
-                classifyPapers(result.run, ids, name, prompt, sample);
-              };
-            })
+          // Wait for ALL models to finish before calling getRuns
+          await Promise.all(
+            selected.map((name) =>
+              classifyPapers(result.run, ids, name, prompt, sample)
+            )
           );
+          setOngoing(false); // <-- moved here, single source of truth
           getRuns(result.run);
         }
       } catch (error) {
@@ -204,7 +202,8 @@ export default function Create({
       currIdx += 1;
     }
 
-    if (alreadyClassified >= classificationTarget) setOngoing(false);
+    // if (alreadyClassified.current >= classificationTarget.current) setOngoing(false);
+    // setOngoing(false) is now handled in handleSubmit after Promise.all resolves
 
     console.log("Done for " + model);
   }
